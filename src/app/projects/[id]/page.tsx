@@ -63,6 +63,7 @@ export default function ProjectDetailPage() {
   const [taskPriority, setTaskPriority] = useState<Priority>("medium");
   const [taskComment, setTaskComment] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -96,7 +97,9 @@ export default function ProjectDetailPage() {
   };
 
   const saveProject = async () => {
+    if (submitting) return;
     if (!editName.trim()) return;
+    setSubmitting(true);
     try {
       await updateProject(uid, projectId, {
         name: editName,
@@ -107,6 +110,8 @@ export default function ProjectDetailPage() {
       fetchData();
     } catch (err: any) {
       setError(err.message || "Ошибка");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -143,8 +148,10 @@ export default function ProjectDetailPage() {
   };
 
   const addTask = async () => {
+    if (submitting) return;
     setFormError(null);
     if (!taskTitle.trim()) return;
+    setSubmitting(true);
     try {
       await createTask(uid, {
         title: taskTitle,
@@ -165,6 +172,8 @@ export default function ProjectDetailPage() {
       fetchData();
     } catch (err: any) {
       setFormError(err.message || "Ошибка");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -267,9 +276,10 @@ export default function ProjectDetailPage() {
               <>
                 <button
                   onClick={saveProject}
-                  className="p-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 transition"
+                  disabled={submitting}
+                  className="p-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Check className="w-4 h-4" />
+                  {submitting ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-4 h-4" />}
                 </button>
                 <button
                   onClick={() => setEditing(false)}
@@ -487,9 +497,10 @@ export default function ProjectDetailPage() {
               </button>
               <button
                 onClick={addTask}
-                className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-500 transition"
+                disabled={submitting}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Добавить
+                {submitting ? <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />Сохранение...</span> : "Добавить"}
               </button>
             </div>
           </div>
