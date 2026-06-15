@@ -7,6 +7,7 @@ import { getNotes, createNote, updateNote, deleteNote } from "@/lib/db";
 import type { Note } from "@/types";
 import { cn } from "@/lib/cn";
 import { Plus, Trash2, Pencil, StickyNote, X, Check } from "lucide-react";
+import { NotesGridSkeleton } from "@/components/Skeleton";
 import { format } from "date-fns";
 
 export default function NotesPage() {
@@ -16,11 +17,13 @@ export default function NotesPage() {
 
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Create
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Edit
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -28,10 +31,17 @@ export default function NotesPage() {
   const [editContent, setEditContent] = useState("");
 
   const fetchNotes = useCallback(async () => {
-    setLoading(true);
-    const data = await getNotes(uid);
-    setNotes(data);
-    setLoading(false);
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await getNotes(uid);
+      setNotes(data);
+    } catch (err: any) {
+      setError(err.message || "Ошибка загрузки данных");
+      setNotes([]);
+    } finally {
+      setLoading(false);
+    }
   }, [uid]);
 
   useEffect(() => {
@@ -39,16 +49,22 @@ export default function NotesPage() {
   }, [fetchNotes]);
 
   const handleCreate = async () => {
+    setFormError(null);
     if (!newTitle.trim()) return;
-    await createNote(uid, {
-      title: newTitle,
-      content: newContent,
-      userId: uid,
-    });
-    setShowCreate(false);
-    setNewTitle("");
-    setNewContent("");
-    fetchNotes();
+    try {
+      await createNote(uid, {
+        title: newTitle,
+        content: newContent,
+        userId: uid,
+      });
+      setShowCreate(false);
+      setFormError(null);
+      setNewTitle("");
+      setNewContent("");
+      fetchNotes();
+    } catch (err: any) {
+      setFormError(err.message || "Ошибка");
+    }
   };
 
   const startEdit = (note: Note) => {
@@ -59,23 +75,37 @@ export default function NotesPage() {
 
   const handleUpdate = async () => {
     if (!editingId || !editTitle.trim()) return;
-    await updateNote(uid, editingId, {
-      title: editTitle,
-      content: editContent,
-    });
-    setEditingId(null);
-    fetchNotes();
+    try {
+      await updateNote(uid, editingId, {
+        title: editTitle,
+        content: editContent,
+      });
+      setEditingId(null);
+      fetchNotes();
+    } catch (err: any) {
+      setError(err.message || "Ошибка");
+    }
   };
 
   const handleDelete = async (id: string) => {
-    await deleteNote(uid, id);
-    fetchNotes();
+    try {
+      await deleteNote(uid, id);
+      fetchNotes();
+    } catch (err: any) {
+      setError(err.message || "Ошибка");
+    }
   };
 
   return (
     <AppShell>
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
+          {error && (
+            <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+
           <h1 className="text-2xl font-bold text-white">Заметки</h1>
           <button
             onClick={() => setShowCreate(true)}
@@ -87,9 +117,7 @@ export default function NotesPage() {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-20">
-            <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-          </div>
+          <NotesGridSkeleton />
         ) : notes.length === 0 && !showCreate ? (
           <div className="text-center py-20 text-gray-500">
             <StickyNote className="w-12 h-12 mx-auto mb-3 opacity-50" />
@@ -195,9 +223,14 @@ export default function NotesPage() {
                 />
               </div>
             </div>
+            {formError && (
+              <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                {formError}
+              </div>
+            )}
             <div className="flex justify-end gap-2 mt-5">
               <button
-                onClick={() => setShowCreate(false)}
+                onClick={() => { setShowCreate(false); setFormError(null); }}
                 className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition"
               >
                 Отмена

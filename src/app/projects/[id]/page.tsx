@@ -26,6 +26,7 @@ import {
   GripVertical,
 } from "lucide-react";
 import { format } from "date-fns";
+import { Skeleton } from "@/components/Skeleton";
 
 const priorityColors: Record<Priority, string> = {
   low: "text-green-400 bg-green-400/10",
@@ -44,6 +45,7 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Edit mode
   const [editing, setEditing] = useState(false);
@@ -60,16 +62,25 @@ export default function ProjectDetailPage() {
   const [taskDeadline, setTaskDeadline] = useState(new Date().toISOString().slice(0, 10));
   const [taskPriority, setTaskPriority] = useState<Priority>("medium");
   const [taskComment, setTaskComment] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
-    const [p, t] = await Promise.all([
-      getProject(uid, projectId),
-      getTasks(uid, undefined, undefined, projectId),
-    ]);
-    setProject(p);
-    setTasks(t);
-    setLoading(false);
+    try {
+      setLoading(true);
+      setError(null);
+      const [p, t] = await Promise.all([
+        getProject(uid, projectId),
+        getTasks(uid, undefined, undefined, projectId),
+      ]);
+      setProject(p);
+      setTasks(t);
+    } catch (err: any) {
+      setError(err.message || "Ошибка загрузки данных");
+      setProject(null);
+      setTasks([]);
+    } finally {
+      setLoading(false);
+    }
   }, [uid, projectId]);
 
   useEffect(() => {
@@ -86,72 +97,114 @@ export default function ProjectDetailPage() {
 
   const saveProject = async () => {
     if (!editName.trim()) return;
-    await updateProject(uid, projectId, {
-      name: editName,
-      description: editDesc,
-      notes: editNotes,
-    });
-    setEditing(false);
-    fetchData();
+    try {
+      await updateProject(uid, projectId, {
+        name: editName,
+        description: editDesc,
+        notes: editNotes,
+      });
+      setEditing(false);
+      fetchData();
+    } catch (err: any) {
+      setError(err.message || "Ошибка");
+    }
   };
 
   const addFeature = async () => {
     if (!newFeature.trim() || !project) return;
-    const features = [...(project.features || []), newFeature.trim()];
-    await updateProject(uid, projectId, { features });
-    setNewFeature("");
-    fetchData();
+    try {
+      const features = [...(project.features || []), newFeature.trim()];
+      await updateProject(uid, projectId, { features });
+      setNewFeature("");
+      fetchData();
+    } catch (err: any) {
+      setError(err.message || "Ошибка");
+    }
   };
 
   const removeFeature = async (idx: number) => {
     if (!project) return;
-    const features = (project.features || []).filter((_, i) => i !== idx);
-    await updateProject(uid, projectId, { features });
-    fetchData();
+    try {
+      const features = (project.features || []).filter((_, i) => i !== idx);
+      await updateProject(uid, projectId, { features });
+      fetchData();
+    } catch (err: any) {
+      setError(err.message || "Ошибка");
+    }
   };
 
   const handleDeleteProject = async () => {
-    await deleteProject(uid, projectId);
-    router.push("/projects");
+    try {
+      await deleteProject(uid, projectId);
+      router.push("/projects");
+    } catch (err: any) {
+      setError(err.message || "Ошибка");
+    }
   };
 
   const addTask = async () => {
+    setFormError(null);
     if (!taskTitle.trim()) return;
-    await createTask(uid, {
-      title: taskTitle,
-      description: "",
-      date: new Date(taskDeadline + "T12:00:00"),
-      deadline: new Date(taskDeadline + "T12:00:00"),
-      priority: taskPriority,
-      comment: taskComment,
-      status: "todo",
-      projectId,
-      planId: null,
-      userId: uid,
-    });
-    setShowTaskModal(false);
-    setTaskTitle("");
-    setTaskComment("");
-    fetchData();
+    try {
+      await createTask(uid, {
+        title: taskTitle,
+        description: "",
+        date: new Date(taskDeadline + "T12:00:00"),
+        deadline: new Date(taskDeadline + "T12:00:00"),
+        priority: taskPriority,
+        comment: taskComment,
+        status: "todo",
+        projectId,
+        planId: null,
+        userId: uid,
+      });
+      setShowTaskModal(false);
+      setFormError(null);
+      setTaskTitle("");
+      setTaskComment("");
+      fetchData();
+    } catch (err: any) {
+      setFormError(err.message || "Ошибка");
+    }
   };
 
   const toggleTaskDone = async (task: Task) => {
-    await updateTask(uid, task.id, {
-      status: task.status === "done" ? "todo" : "done",
-    });
-    fetchData();
+    try {
+      await updateTask(uid, task.id, {
+        status: task.status === "done" ? "todo" : "done",
+      });
+      fetchData();
+    } catch (err: any) {
+      setError(err.message || "Ошибка");
+    }
   };
 
   const removeTask = async (id: string) => {
-    await deleteTask(uid, id);
-    fetchData();
+    try {
+      await deleteTask(uid, id);
+      fetchData();
+    } catch (err: any) {
+      setError(err.message || "Ошибка");
+    }
   };
 
   if (loading) {
     return (
       <AppShell>
-        <div className="flex justify-center py-20">
-          <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <div className="max-w-4xl mx-auto space-y-4">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-8 w-64" />
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="rounded-xl border border-slate-700/30 bg-slate-900/30 p-5 space-y-3">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+            </div>
+            <div className="rounded-xl border border-slate-700/30 bg-slate-900/30 p-5 space-y-3">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-20 w-full" />
+            </div>
+          </div>
         </div>
       </AppShell>
     );
@@ -168,6 +221,12 @@ export default function ProjectDetailPage() {
   return (
     <AppShell>
       <div className="max-w-4xl mx-auto">
+        {error && (
+          <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            {error}
+          </div>
+        )}
+
         {/* Back */}
         <button
           onClick={() => router.push("/projects")}
@@ -414,9 +473,14 @@ export default function ProjectDetailPage() {
                 />
               </div>
             </div>
+            {formError && (
+              <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                {formError}
+              </div>
+            )}
             <div className="flex justify-end gap-2 mt-5">
               <button
-                onClick={() => setShowTaskModal(false)}
+                onClick={() => { setShowTaskModal(false); setFormError(null); }}
                 className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition"
               >
                 Отмена

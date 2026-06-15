@@ -26,6 +26,7 @@ import {
 } from "@/lib/dates";
 import { cn } from "@/lib/cn";
 import { Plus, ChevronLeft, ChevronRight, Pencil, Trash2, CalendarDays, List } from "lucide-react";
+import { PlanGridSkeleton } from "@/components/Skeleton";
 
 type ViewMode = "weekly" | "monthly";
 
@@ -38,6 +39,7 @@ export default function PlanPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [items, setItems] = useState<PlanItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -45,6 +47,7 @@ export default function PlanPage() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [formTitle, setFormTitle] = useState("");
   const [formDesc, setFormDesc] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
 
   const weekStart = getWeekStart(currentDate);
   const monthKey = getMonthKey(currentDate);
@@ -52,10 +55,17 @@ export default function PlanPage() {
   const days = view === "weekly" ? getWeekDays(currentDate) : getMonthDays(currentDate);
 
   const fetchItems = useCallback(async () => {
-    setLoading(true);
-    const data = await getPlanItems(uid, view, view === "weekly" ? weekStart : monthKey);
-    setItems(data);
-    setLoading(false);
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await getPlanItems(uid, view, view === "weekly" ? weekStart : monthKey);
+      setItems(data);
+    } catch (err: any) {
+      setError(err.message || "Ошибка загрузки данных");
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
   }, [uid, view, weekStart, monthKey]);
 
   useEffect(() => {
@@ -82,31 +92,41 @@ export default function PlanPage() {
   };
 
   const handleSave = async () => {
+    setFormError(null);
     if (!formTitle.trim()) return;
-    if (editingItem) {
-      await updatePlanItem(uid, editingItem.id, {
-        title: formTitle,
-        description: formDesc,
-        date: selectedDate,
-      });
-    } else {
-      await createPlanItem(uid, {
-        title: formTitle,
-        description: formDesc,
-        date: selectedDate,
-        type: view,
-        weekStart: getWeekStart(selectedDate),
-        month: getMonthKey(selectedDate),
-        userId: uid,
-      });
+    try {
+      if (editingItem) {
+        await updatePlanItem(uid, editingItem.id, {
+          title: formTitle,
+          description: formDesc,
+          date: selectedDate,
+        });
+      } else {
+        await createPlanItem(uid, {
+          title: formTitle,
+          description: formDesc,
+          date: selectedDate,
+          type: view,
+          weekStart: getWeekStart(selectedDate),
+          month: getMonthKey(selectedDate),
+          userId: uid,
+        });
+      }
+      setShowModal(false);
+      setFormError(null);
+      fetchItems();
+    } catch (err: any) {
+      setFormError(err.message || "Ошибка");
     }
-    setShowModal(false);
-    fetchItems();
   };
 
   const handleDelete = async (id: string) => {
-    await deletePlanItem(uid, id);
-    fetchItems();
+    try {
+      await deletePlanItem(uid, id);
+      fetchItems();
+    } catch (err: any) {
+      setError(err.message || "Ошибка");
+    }
   };
 
   const navigate = (dir: "prev" | "next") => {
@@ -122,6 +142,12 @@ export default function PlanPage() {
   return (
     <AppShell>
       <div className="max-w-6xl mx-auto">
+        {error && (
+          <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            {error}
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-white">План</h1>
@@ -173,9 +199,7 @@ export default function PlanPage() {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-20">
-            <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-          </div>
+          <PlanGridSkeleton />
         ) : (
           /* Grid */
           <div
@@ -301,9 +325,14 @@ export default function PlanPage() {
                 />
               </div>
             </div>
+            {formError && (
+              <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                {formError}
+              </div>
+            )}
             <div className="flex justify-end gap-2 mt-5">
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => { setShowModal(false); setFormError(null); }}
                 className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition"
               >
                 Отмена

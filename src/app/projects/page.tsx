@@ -8,6 +8,7 @@ import { getProjects, createProject, deleteProject } from "@/lib/db";
 import type { Project } from "@/types";
 import { cn } from "@/lib/cn";
 import { Plus, FolderKanban, Trash2, Pencil, ArrowRight } from "lucide-react";
+import { ProjectGridSkeleton } from "@/components/Skeleton";
 
 export default function ProjectsPage() {
   const { user } = useAuth();
@@ -17,15 +18,24 @@ export default function ProjectsPage() {
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [formName, setFormName] = useState("");
   const [formDesc, setFormDesc] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
 
   const fetchProjects = useCallback(async () => {
-    setLoading(true);
-    const data = await getProjects(uid);
-    setProjects(data);
-    setLoading(false);
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await getProjects(uid);
+      setProjects(data);
+    } catch (err: any) {
+      setError(err.message || "Ошибка загрузки данных");
+      setProjects([]);
+    } finally {
+      setLoading(false);
+    }
   }, [uid]);
 
   useEffect(() => {
@@ -33,30 +43,46 @@ export default function ProjectsPage() {
   }, [fetchProjects]);
 
   const handleCreate = async () => {
+    setFormError(null);
     if (!formName.trim()) return;
-    await createProject(uid, {
-      name: formName,
-      description: formDesc,
-      features: [],
-      notes: "",
-      userId: uid,
-    });
-    setShowModal(false);
-    setFormName("");
-    setFormDesc("");
-    fetchProjects();
+    try {
+      await createProject(uid, {
+        name: formName,
+        description: formDesc,
+        features: [],
+        notes: "",
+        userId: uid,
+      });
+      setShowModal(false);
+      setFormError(null);
+      setFormName("");
+      setFormDesc("");
+      fetchProjects();
+    } catch (err: any) {
+      setFormError(err.message || "Ошибка");
+    }
   };
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    await deleteProject(uid, id);
-    fetchProjects();
+    try {
+      await deleteProject(uid, id);
+      fetchProjects();
+    } catch (err: any) {
+      setError(err.message || "Ошибка");
+    }
   };
 
   return (
     <AppShell>
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-6">
+          {error && (
+            <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+
           <h1 className="text-2xl font-bold text-white">Проекты</h1>
           <button
             onClick={() => setShowModal(true)}
@@ -68,9 +94,7 @@ export default function ProjectsPage() {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-20">
-            <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-          </div>
+          <ProjectGridSkeleton />
         ) : projects.length === 0 ? (
           <div className="text-center py-20 text-gray-500">
             <FolderKanban className="w-12 h-12 mx-auto mb-3 opacity-50" />
@@ -146,9 +170,14 @@ export default function ProjectsPage() {
                 />
               </div>
             </div>
+            {formError && (
+              <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                {formError}
+              </div>
+            )}
             <div className="flex justify-end gap-2 mt-5">
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => { setShowModal(false); setFormError(null); }}
                 className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition"
               >
                 Отмена

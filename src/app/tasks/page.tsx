@@ -25,6 +25,7 @@ import {
   MessageSquare,
   CalendarDays,
 } from "lucide-react";
+import { TaskGridSkeleton } from "@/components/Skeleton";
 
 const priorityColors: Record<Priority, string> = {
   low: "text-green-400 bg-green-400/10",
@@ -40,6 +41,7 @@ export default function TasksPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Modal
   const [showModal, setShowModal] = useState(false);
@@ -51,17 +53,25 @@ export default function TasksPage() {
   const [formPriority, setFormPriority] = useState<Priority>("medium");
   const [formComment, setFormComment] = useState("");
   const [formStatus, setFormStatus] = useState<TaskStatus>("todo");
+  const [formError, setFormError] = useState<string | null>(null);
 
   const days = getWeekDays(currentDate);
   const weekStart = getWeekStart(currentDate);
 
   const fetchTasks = useCallback(async () => {
-    setLoading(true);
-    const from = days[0];
-    const to = days[days.length - 1];
-    const data = await getTasks(uid, from, to);
-    setTasks(data);
-    setLoading(false);
+    try {
+      setLoading(true);
+      setError(null);
+      const from = days[0];
+      const to = days[days.length - 1];
+      const data = await getTasks(uid, from, to);
+      setTasks(data);
+    } catch (err: any) {
+      setError(err.message || "Ошибка загрузки данных");
+      setTasks([]);
+    } finally {
+      setLoading(false);
+    }
   }, [uid, days]);
 
   useEffect(() => {
@@ -96,44 +106,58 @@ export default function TasksPage() {
   };
 
   const handleSave = async () => {
+    setFormError(null);
     if (!formTitle.trim()) return;
-    if (editingTask) {
-      await updateTask(uid, editingTask.id, {
-        title: formTitle,
-        description: formDesc,
-        date: formDate,
-        deadline: formDeadline,
-        priority: formPriority,
-        comment: formComment,
-        status: formStatus,
-      });
-    } else {
-      await createTask(uid, {
-        title: formTitle,
-        description: formDesc,
-        date: formDate,
-        deadline: formDeadline,
-        priority: formPriority,
-        comment: formComment,
-        status: formStatus,
-        projectId: null,
-        planId: null,
-        userId: uid,
-      });
+    try {
+      if (editingTask) {
+        await updateTask(uid, editingTask.id, {
+          title: formTitle,
+          description: formDesc,
+          date: formDate,
+          deadline: formDeadline,
+          priority: formPriority,
+          comment: formComment,
+          status: formStatus,
+        });
+      } else {
+        await createTask(uid, {
+          title: formTitle,
+          description: formDesc,
+          date: formDate,
+          deadline: formDeadline,
+          priority: formPriority,
+          comment: formComment,
+          status: formStatus,
+          projectId: null,
+          planId: null,
+          userId: uid,
+        });
+      }
+      setShowModal(false);
+      setFormError(null);
+      fetchTasks();
+    } catch (err: any) {
+      setFormError(err.message || "Ошибка");
     }
-    setShowModal(false);
-    fetchTasks();
   };
 
   const handleDelete = async (id: string) => {
-    await deleteTask(uid, id);
-    fetchTasks();
+    try {
+      await deleteTask(uid, id);
+      fetchTasks();
+    } catch (err: any) {
+      setError(err.message || "Ошибка");
+    }
   };
 
   const handleToggleStatus = async (task: Task) => {
-    const next: TaskStatus = task.status === "done" ? "todo" : "done";
-    await updateTask(uid, task.id, { status: next });
-    fetchTasks();
+    try {
+      const next: TaskStatus = task.status === "done" ? "todo" : "done";
+      await updateTask(uid, task.id, { status: next });
+      fetchTasks();
+    } catch (err: any) {
+      setError(err.message || "Ошибка");
+    }
   };
 
   const today = new Date();
@@ -141,6 +165,12 @@ export default function TasksPage() {
   return (
     <AppShell>
       <div className="max-w-6xl mx-auto">
+        {error && (
+          <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            {error}
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-white">Задачи</h1>
@@ -166,9 +196,7 @@ export default function TasksPage() {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-20">
-            <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-          </div>
+          <TaskGridSkeleton />
         ) : (
           /* Day columns */
           <div className="grid grid-cols-7 gap-2">
@@ -339,9 +367,14 @@ export default function TasksPage() {
                 />
               </div>
             </div>
+            {formError && (
+              <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                {formError}
+              </div>
+            )}
             <div className="flex justify-end gap-2 mt-5">
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => { setShowModal(false); setFormError(null); }}
                 className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition"
               >
                 Отмена
