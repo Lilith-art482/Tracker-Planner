@@ -107,12 +107,23 @@ export default function TasksPage() {
   };
 
   const handleSave = async () => {
-    if (submitting) return;
+    if (submitting || !formTitle.trim()) return;
     setFormError(null);
-    if (!formTitle.trim()) return;
-    setSubmitting(true);
-    try {
-      if (editingTask) {
+    if (editingTask) {
+      const updated: Task = {
+        ...editingTask,
+        title: formTitle,
+        description: formDesc,
+        date: formDate,
+        deadline: formDeadline,
+        priority: formPriority,
+        comment: formComment,
+        status: formStatus,
+      };
+      setTasks(prev => prev.map(t => t.id === editingTask.id ? updated : t));
+      setShowModal(false);
+      setSubmitting(true);
+      try {
         await updateTask(uid, editingTask.id, {
           title: formTitle,
           description: formDesc,
@@ -122,8 +133,34 @@ export default function TasksPage() {
           comment: formComment,
           status: formStatus,
         });
-      } else {
-        await createTask(uid, {
+      } catch {
+        setTasks(prev => prev.map(t => t.id === editingTask.id ? editingTask : t));
+        setFormError("Ошибка при обновлении");
+      } finally {
+        setSubmitting(false);
+      }
+    } else {
+      const tempId = `temp_${Date.now()}`;
+      const newTask: Task = {
+        id: tempId,
+        title: formTitle,
+        description: formDesc,
+        date: formDate,
+        deadline: formDeadline,
+        priority: formPriority,
+        comment: formComment,
+        status: formStatus,
+        projectId: null,
+        planId: null,
+        userId: uid,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      setShowModal(false);
+      setTasks(prev => [newTask, ...prev]);
+      setSubmitting(true);
+      try {
+        const realId = await createTask(uid, {
           title: formTitle,
           description: formDesc,
           date: formDate,
@@ -135,33 +172,35 @@ export default function TasksPage() {
           planId: null,
           userId: uid,
         });
+        setTasks(prev => prev.map(t => t.id === tempId ? { ...t, id: realId } : t));
+      } catch (err: any) {
+        setTasks(prev => prev.filter(t => t.id !== tempId));
+        setFormError(err.message || "Ошибка при создании");
+      } finally {
+        setSubmitting(false);
       }
-      setShowModal(false);
-      setFormError(null);
-      fetchTasks();
-    } catch (err: any) {
-      setFormError(err.message || "Ошибка");
-    } finally {
-      setSubmitting(false);
     }
   };
 
   const handleDelete = async (id: string) => {
+    const prev = tasks;
+    setTasks(prev => prev.filter(t => t.id !== id));
     try {
       await deleteTask(uid, id);
-      fetchTasks();
-    } catch (err: any) {
-      setError(err.message || "Ошибка");
+    } catch {
+      setTasks(prev);
+      setError("Ошибка при удалении");
     }
   };
 
   const handleToggleStatus = async (task: Task) => {
+    const nextStatus: TaskStatus = task.status === "done" ? "todo" : "done";
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: nextStatus } : t));
     try {
-      const next: TaskStatus = task.status === "done" ? "todo" : "done";
-      await updateTask(uid, task.id, { status: next });
-      fetchTasks();
-    } catch (err: any) {
-      setError(err.message || "Ошибка");
+      await updateTask(uid, task.id, { status: nextStatus });
+    } catch {
+      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: task.status } : t));
+      setError("Ошибка при обновлении статуса");
     }
   };
 

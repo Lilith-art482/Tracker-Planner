@@ -50,23 +50,32 @@ export default function NotesPage() {
   }, [fetchNotes]);
 
   const handleCreate = async () => {
-    if (submitting) return;
+    if (submitting || !newTitle.trim()) return;
     setFormError(null);
-    if (!newTitle.trim()) return;
+    const tempId = `temp_${Date.now()}`;
+    const newNote: Note = {
+      id: tempId,
+      title: newTitle,
+      content: newContent,
+      userId: uid,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    setShowCreate(false);
+    setNotes(prev => [newNote, ...prev]);
+    setNewTitle("");
+    setNewContent("");
     setSubmitting(true);
     try {
-      await createNote(uid, {
+      const realId = await createNote(uid, {
         title: newTitle,
         content: newContent,
         userId: uid,
       });
-      setShowCreate(false);
-      setFormError(null);
-      setNewTitle("");
-      setNewContent("");
-      fetchNotes();
+      setNotes(prev => prev.map(n => n.id === tempId ? { ...n, id: realId } : n));
     } catch (err: any) {
-      setFormError(err.message || "Ошибка");
+      setNotes(prev => prev.filter(n => n.id !== tempId));
+      setFormError(err.message || "Ошибка при создании");
     } finally {
       setSubmitting(false);
     }
@@ -79,17 +88,19 @@ export default function NotesPage() {
   };
 
   const handleUpdate = async () => {
-    if (submitting) return;
-    if (!editingId || !editTitle.trim()) return;
+    if (submitting || !editingId || !editTitle.trim()) return;
+    const prevNotes = notes;
+    setNotes(prev => prev.map(n => n.id === editingId ? { ...n, title: editTitle, content: editContent } : n));
+    setEditingId(null);
     setSubmitting(true);
     try {
       await updateNote(uid, editingId, {
         title: editTitle,
         content: editContent,
       });
-      setEditingId(null);
-      fetchNotes();
     } catch (err: any) {
+      setNotes(prevNotes);
+      setEditingId(editingId);
       setError(err.message || "Ошибка");
     } finally {
       setSubmitting(false);
@@ -97,11 +108,13 @@ export default function NotesPage() {
   };
 
   const handleDelete = async (id: string) => {
+    const prev = notes;
+    setNotes(prev => prev.filter(n => n.id !== id));
     try {
       await deleteNote(uid, id);
-      fetchNotes();
-    } catch (err: any) {
-      setError(err.message || "Ошибка");
+    } catch {
+      setNotes(prev);
+      setError("Ошибка при удалении");
     }
   };
 

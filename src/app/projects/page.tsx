@@ -44,25 +44,36 @@ export default function ProjectsPage() {
   }, [fetchProjects]);
 
   const handleCreate = async () => {
-    if (submitting) return;
+    if (submitting || !formName.trim()) return;
     setFormError(null);
-    if (!formName.trim()) return;
+    const tempId = `temp_${Date.now()}`;
+    const newProject: Project = {
+      id: tempId,
+      name: formName,
+      description: formDesc,
+      features: [],
+      notes: "",
+      userId: uid,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    setShowModal(false);
+    setProjects(prev => [newProject, ...prev]);
+    setFormName("");
+    setFormDesc("");
     setSubmitting(true);
     try {
-      await createProject(uid, {
+      const realId = await createProject(uid, {
         name: formName,
         description: formDesc,
         features: [],
         notes: "",
         userId: uid,
       });
-      setShowModal(false);
-      setFormError(null);
-      setFormName("");
-      setFormDesc("");
-      fetchProjects();
+      setProjects(prev => prev.map(p => p.id === tempId ? { ...p, id: realId } : p));
     } catch (err: any) {
-      setFormError(err.message || "Ошибка");
+      setProjects(prev => prev.filter(p => p.id !== tempId));
+      setFormError(err.message || "Ошибка при создании");
     } finally {
       setSubmitting(false);
     }
@@ -70,11 +81,13 @@ export default function ProjectsPage() {
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    const prev = projects;
+    setProjects(prev => prev.filter(p => p.id !== id));
     try {
       await deleteProject(uid, id);
-      fetchProjects();
-    } catch (err: any) {
-      setError(err.message || "Ошибка");
+    } catch {
+      setProjects(prev);
+      setError("Ошибка при удалении");
     }
   };
 

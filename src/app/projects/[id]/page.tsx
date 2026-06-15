@@ -13,7 +13,7 @@ import {
   updateTask,
   deleteTask,
 } from "@/lib/db";
-import type { Project, Task, Priority } from "@/types";
+import type { Project, Task, Priority, TaskStatus } from "@/types";
 import { cn } from "@/lib/cn";
 import {
   ArrowLeft,
@@ -44,6 +44,7 @@ export default function ProjectDetailPage() {
 
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [features, setFeatures] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,6 +75,7 @@ export default function ProjectDetailPage() {
         getTasks(uid, undefined, undefined, projectId),
       ]);
       setProject(p);
+      setFeatures(p?.features || []);
       setTasks(t);
     } catch (err: any) {
       setError(err.message || "Ошибка загрузки данных");
@@ -97,8 +99,16 @@ export default function ProjectDetailPage() {
   };
 
   const saveProject = async () => {
-    if (submitting) return;
-    if (!editName.trim()) return;
+    if (submitting || !editName.trim()) return;
+    const prevProject = project;
+    if (!project) return;
+    setProject({
+      ...project,
+      name: editName,
+      description: editDesc,
+      notes: editNotes,
+    });
+    setEditing(false);
     setSubmitting(true);
     try {
       await updateProject(uid, projectId, {
@@ -106,9 +116,9 @@ export default function ProjectDetailPage() {
         description: editDesc,
         notes: editNotes,
       });
-      setEditing(false);
-      fetchData();
     } catch (err: any) {
+      setProject(prevProject);
+      setEditing(true);
       setError(err.message || "Ошибка");
     } finally {
       setSubmitting(false);
@@ -116,32 +126,34 @@ export default function ProjectDetailPage() {
   };
 
   const addFeature = async () => {
-    if (!newFeature.trim() || !project) return;
+    if (!newFeature.trim()) return;
+    const trimmed = newFeature.trim();
+    const prev = features;
+    setFeatures(prev => [...prev, trimmed]);
+    setNewFeature("");
     try {
-      const features = [...(project.features || []), newFeature.trim()];
-      await updateProject(uid, projectId, { features });
-      setNewFeature("");
-      fetchData();
-    } catch (err: any) {
-      setError(err.message || "Ошибка");
+      await updateProject(uid, projectId, { features: [...prev, trimmed] });
+    } catch {
+      setFeatures(prev);
+      setError("Ошибка при добавлении функции");
     }
   };
 
   const removeFeature = async (idx: number) => {
-    if (!project) return;
+    const prev = features;
+    setFeatures(prev => prev.filter((_, i) => i !== idx));
     try {
-      const features = (project.features || []).filter((_, i) => i !== idx);
-      await updateProject(uid, projectId, { features });
-      fetchData();
-    } catch (err: any) {
-      setError(err.message || "Ошибка");
+      await updateProject(uid, projectId, { features: prev.filter((_, i) => i !== idx) });
+    } catch {
+      setFeatures(prev);
+      setError("Ошибка при удалении функции");
     }
   };
 
   const handleDeleteProject = async () => {
+    router.push("/projects");
     try {
       await deleteProject(uid, projectId);
-      router.push("/projects");
     } catch (err: any) {
       setError(err.message || "Ошибка");
     }
@@ -151,13 +163,34 @@ export default function ProjectDetailPage() {
     if (submitting) return;
     setFormError(null);
     if (!taskTitle.trim()) return;
+    const tempId = `temp_${Date.now()}`;
+    const deadline = new Date(taskDeadline + "T12:00:00");
+    const newTask: Task = {
+      id: tempId,
+      title: taskTitle,
+      description: "",
+      date: deadline,
+      deadline,
+      priority: taskPriority,
+      comment: taskComment,
+      status: "todo",
+      projectId,
+      planId: null,
+      userId: uid,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    setShowTaskModal(false);
+    setTasks(prev => [...prev, newTask]);
+    setTaskTitle("");
+    setTaskComment("");
     setSubmitting(true);
     try {
-      await createTask(uid, {
+      const realId = await createTask(uid, {
         title: taskTitle,
         description: "",
-        date: new Date(taskDeadline + "T12:00:00"),
-        deadline: new Date(taskDeadline + "T12:00:00"),
+        date: deadline,
+        deadline,
         priority: taskPriority,
         comment: taskComment,
         status: "todo",
@@ -165,12 +198,9 @@ export default function ProjectDetailPage() {
         planId: null,
         userId: uid,
       });
-      setShowTaskModal(false);
-      setFormError(null);
-      setTaskTitle("");
-      setTaskComment("");
-      fetchData();
+      setTasks(prev => prev.map(t => t.id === tempId ? { ...t, id: realId } : t));
     } catch (err: any) {
+      setTasks(prev => prev.filter(t => t.id !== tempId));
       setFormError(err.message || "Ошибка");
     } finally {
       setSubmitting(false);
@@ -178,22 +208,24 @@ export default function ProjectDetailPage() {
   };
 
   const toggleTaskDone = async (task: Task) => {
+    const nextStatus: TaskStatus = task.status === "done" ? "todo" : "done";
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: nextStatus } : t));
     try {
-      await updateTask(uid, task.id, {
-        status: task.status === "done" ? "todo" : "done",
-      });
-      fetchData();
-    } catch (err: any) {
-      setError(err.message || "Ошибка");
+      await updateTask(uid, task.id, { status: nextStatus });
+    } catch {
+      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: task.status } : t));
+      setError("Ошибка при обновлении статуса");
     }
   };
 
   const removeTask = async (id: string) => {
+    const prev = tasks;
+    setTasks(prev => prev.filter(t => t.id !== id));
     try {
       await deleteTask(uid, id);
-      fetchData();
-    } catch (err: any) {
-      setError(err.message || "Ошибка");
+    } catch {
+      setTasks(prev);
+      setError("Ошибка при удалении задачи");
     }
   };
 
@@ -312,7 +344,7 @@ export default function ProjectDetailPage() {
           <div className="rounded-xl border border-white/5 bg-white/[0.02] p-5">
             <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-3">Функции</h2>
             <ul className="space-y-1.5 mb-3">
-              {(project.features || []).map((f, i) => (
+              {features.map((f, i) => (
                 <li key={i} className="flex items-center gap-2 text-sm text-gray-400 group/feat">
                   <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0" />
                   <span className="flex-1">{f}</span>

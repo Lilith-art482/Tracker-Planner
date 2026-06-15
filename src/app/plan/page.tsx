@@ -93,19 +93,48 @@ export default function PlanPage() {
   };
 
   const handleSave = async () => {
-    if (submitting) return;
+    if (submitting || !formTitle.trim()) return;
     setFormError(null);
-    if (!formTitle.trim()) return;
-    setSubmitting(true);
-    try {
-      if (editingItem) {
+    if (editingItem) {
+      const updated: PlanItem = {
+        ...editingItem,
+        title: formTitle,
+        description: formDesc,
+        date: selectedDate,
+      };
+      setItems(prev => prev.map(i => i.id === editingItem.id ? updated : i));
+      setShowModal(false);
+      setSubmitting(true);
+      try {
         await updatePlanItem(uid, editingItem.id, {
           title: formTitle,
           description: formDesc,
           date: selectedDate,
         });
-      } else {
-        await createPlanItem(uid, {
+      } catch {
+        setItems(prev => prev.map(i => i.id === editingItem.id ? editingItem : i));
+        setFormError("Ошибка при обновлении");
+      } finally {
+        setSubmitting(false);
+      }
+    } else {
+      const tempId = `temp_${Date.now()}`;
+      const newItem: PlanItem = {
+        id: tempId,
+        title: formTitle,
+        description: formDesc,
+        date: selectedDate,
+        type: view,
+        weekStart: getWeekStart(selectedDate),
+        month: getMonthKey(selectedDate),
+        userId: uid,
+        createdAt: new Date(),
+      };
+      setShowModal(false);
+      setItems(prev => [newItem, ...prev]);
+      setSubmitting(true);
+      try {
+        const realId = await createPlanItem(uid, {
           title: formTitle,
           description: formDesc,
           date: selectedDate,
@@ -114,23 +143,24 @@ export default function PlanPage() {
           month: getMonthKey(selectedDate),
           userId: uid,
         });
+        setItems(prev => prev.map(i => i.id === tempId ? { ...i, id: realId } : i));
+      } catch (err: any) {
+        setItems(prev => prev.filter(i => i.id !== tempId));
+        setFormError(err.message || "Ошибка при создании");
+      } finally {
+        setSubmitting(false);
       }
-      setShowModal(false);
-      setFormError(null);
-      fetchItems();
-    } catch (err: any) {
-      setFormError(err.message || "Ошибка");
-    } finally {
-      setSubmitting(false);
     }
   };
 
   const handleDelete = async (id: string) => {
+    const prev = items;
+    setItems(prev => prev.filter(i => i.id !== id));
     try {
       await deletePlanItem(uid, id);
-      fetchItems();
-    } catch (err: any) {
-      setError(err.message || "Ошибка");
+    } catch {
+      setItems(prev);
+      setError("Ошибка при удалении");
     }
   };
 
