@@ -25,6 +25,7 @@ export interface Task {
   projectId: string | null;
   planId: string | null;
   userId: string;
+  category?: string;
   createdAt: Date;
   updatedAt: Date;
 }
