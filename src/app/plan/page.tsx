@@ -658,38 +658,43 @@ export default function DayPlanPage() {
 
   /* ─── Data loading ─── */
 
-  const loadAll = useCallback(async () => {
+  useEffect(() => {
     if (!uid) return;
-    try {
-      setLoading(true);
-      setError(null);
-      const { start, end } = getTodayRange();
-      const [fetchedTasks, fetchedCats] = await Promise.all([
-        getTasks(uid, start, end),
-        getCategories(uid),
-      ]);
-      setTasks(fetchedTasks);
-      if (fetchedCats.length === 0) {
-        // Seed default categories on first run
-        const ids = await Promise.all(
-          DEFAULT_CATEGORIES.map((d) =>
-            createCategory(uid, { ...d, userId: uid })
-          )
-        );
-        setCategories(DEFAULT_CATEGORIES.map((d, i) => ({ id: ids[i], ...d, userId: uid, createdAt: new Date() })));
-      } else {
-        setCategories(fetchedCats);
-      }
-    } catch (err: any) {
-      setError(err.message || "Ошибка загрузки данных");
-      setTasks([]);
-      setCategories([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [uid]);
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
 
-  useEffect(() => { loadAll(); }, [loadAll]);
+    (async () => {
+      try {
+        const { start, end } = getTodayRange();
+        const [fetchedTasks, fetchedCats] = await Promise.all([
+          getTasks(uid, start, end),
+          getCategories(uid),
+        ]);
+        if (cancelled) return;
+        setTasks(fetchedTasks);
+        if (fetchedCats.length === 0) {
+          const ids = await Promise.all(
+            DEFAULT_CATEGORIES.map((d) => createCategory(uid, { ...d, userId: uid }))
+          );
+          if (cancelled) return;
+          setCategories(DEFAULT_CATEGORIES.map((d, i) => ({ id: ids[i], ...d, userId: uid, createdAt: new Date() })));
+        } else {
+          setCategories(fetchedCats);
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setError(err.message || "Ошибка загрузки данных");
+          setTasks([]);
+          setCategories([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [uid]);
 
   /* ─── Computed stats ─── */
 
