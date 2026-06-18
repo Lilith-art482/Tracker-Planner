@@ -14,7 +14,7 @@ import {
   type QueryConstraint,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import type { PlanItem, Task, Project, Note, TaskStatus, Priority } from "@/types";
+import type { PlanItem, Task, Project, Note, TaskStatus, Priority, Category } from "@/types";
 
 function userCol(userId: string, sub: string) {
   return collection(db, "users", userId, sub);
@@ -191,4 +191,37 @@ export async function updateNote(userId: string, id: string, data: Partial<Note>
 
 export async function deleteNote(userId: string, id: string) {
   await deleteDoc(userDoc(userId, "notes", id));
+}
+
+// ─── Categories ──────────────────────────────────────────────
+
+export async function getCategories(userId: string) {
+  const snap = await getDocs(query(userCol(userId, "categories"), orderBy("createdAt", "asc")));
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      ...data,
+      createdAt: data.createdAt?.toDate() ?? new Date(),
+    } as Category;
+  });
+}
+
+export async function createCategory(
+  userId: string,
+  data: Omit<Category, "id" | "createdAt">
+) {
+  const ref = await addDoc(userCol(userId, "categories"), {
+    ...data,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function updateCategory(userId: string, id: string, data: Partial<Category>) {
+  await updateDoc(userDoc(userId, "categories", id), data);
+}
+
+export async function deleteCategory(userId: string, id: string) {
+  await deleteDoc(userDoc(userId, "categories", id));
 }

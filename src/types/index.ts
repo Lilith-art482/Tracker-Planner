@@ -50,6 +50,15 @@ export interface Note {
   updatedAt: Date;
 }
 
+export interface Category {
+  id: string;
+  key: string;
+  label: string;
+  color: string;
+  userId: string;
+  createdAt: Date;
+}
+
 export interface UserProfile {
   uid: string;
   email: string;
