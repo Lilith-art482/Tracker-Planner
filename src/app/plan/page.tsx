@@ -371,100 +371,102 @@ function CategoryManager({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={(e) => { if (e.target === e.currentTarget) { reset(); onClose(); } }}>
-      <div className="w-full max-w-md rounded-xl bg-slate-800 border border-slate-700/50 p-5 shadow-2xl max-h-[80vh] flex flex-col">
-        <div className="flex items-center justify-between mb-4">
+      <div className="w-full max-w-md rounded-xl bg-slate-800 border border-slate-700/50 shadow-2xl max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between p-5 pb-0 flex-shrink-0">
           <h2 className="text-base font-semibold text-white">Управление категориями</h2>
           <button onClick={() => { reset(); onClose(); }} className="p-1 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* List */}
-        <div className="flex-1 overflow-y-auto space-y-1.5 min-h-0 mb-4">
-          {categories.length === 0 && (
-            <p className="text-xs text-gray-500 text-center py-6">Категорий пока нет. Создайте первую!</p>
-          )}
-          {categories.map((cat) => (
-            <div
-              key={cat.id}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/[0.02] border border-white/5 group"
-            >
-              <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: cat.color }} />
-              <span className="flex-1 text-sm text-gray-200 truncate">{cat.label}</span>
-              <span className="text-[10px] text-gray-500 font-mono">{cat.key}</span>
-              <button
-                onClick={() => startEdit(cat)}
-                className="p-1 rounded hover:bg-white/10 text-gray-500 hover:text-white opacity-0 group-hover:opacity-100 transition"
-              >
-                <Pencil className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={async () => {
-                  if (confirm(`Удалить категорию «${cat.label}»?`)) {
-                    await onDelete(cat.id);
-                  }
-                }}
-                className="p-1 rounded hover:bg-red-500/10 text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ))}
-        </div>
-
-        {/* Edit / Add form */}
-        <div className="border-t border-slate-700/30 pt-4 space-y-3">
-          {error && <p className="text-xs text-red-400">{error}</p>}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder={editingId ? "Новое название" : "Название новой категории"}
-              className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-            />
-            <div className="relative flex-shrink-0">
-              <input
-                type="color"
-                value={color}
-                onChange={(e) => setColor(e.target.value)}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              />
+        <div className="flex-1 overflow-y-auto min-h-0 p-5 pt-4">
+          {/* List */}
+          <div className="space-y-1.5 mb-5">
+            {categories.length === 0 && (
+              <p className="text-xs text-gray-500 text-center py-6">Категорий пока нет. Создайте первую!</p>
+            )}
+            {categories.map((cat) => (
               <div
-                className="w-9 h-9 rounded-lg border border-white/10 cursor-pointer"
-                style={{ background: color }}
-              />
-            </div>
-          </div>
-
-          {/* Preset colors */}
-          <div className="flex gap-1.5 flex-wrap">
-            {PRESET_COLORS.map((c) => (
-              <button
-                key={c}
-                onClick={() => setColor(c)}
-                className={cn(
-                  "w-6 h-6 rounded-full border-2 transition",
-                  color === c ? "border-white scale-110" : "border-transparent hover:scale-110"
-                )}
-                style={{ background: c }}
-              />
+                key={cat.id}
+                className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/[0.02] border border-white/5 group"
+              >
+                <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: cat.color }} />
+                <span className="flex-1 text-sm text-gray-200 truncate">{cat.label}</span>
+                <span className="text-[10px] text-gray-500 font-mono">{cat.key}</span>
+                <button
+                  onClick={() => startEdit(cat)}
+                  className="p-1 rounded hover:bg-white/10 text-gray-500 hover:text-white opacity-0 group-hover:opacity-100 transition"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={async () => {
+                    if (confirm(`Удалить категорию «${cat.label}»?`)) {
+                      await onDelete(cat.id);
+                    }
+                  }}
+                  className="p-1 rounded hover:bg-red-500/10 text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             ))}
           </div>
 
-          <div className="flex justify-end gap-2">
-            {editingId && (
-              <button onClick={reset} className="px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition">
-                Отменить
+          {/* Edit / Add form */}
+          <div className="border-t border-slate-700/30 pt-4 space-y-3">
+            {error && <p className="text-xs text-red-400">{error}</p>}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                placeholder={editingId ? "Новое название" : "Название новой категории"}
+                className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+              />
+              <div className="relative flex-shrink-0">
+                <input
+                  type="color"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+                <div
+                  className="w-9 h-9 rounded-lg border border-white/10 cursor-pointer"
+                  style={{ background: color }}
+                />
+              </div>
+            </div>
+
+            {/* Preset colors */}
+            <div className="flex gap-1.5 flex-wrap">
+              {PRESET_COLORS.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setColor(c)}
+                  className={cn(
+                    "w-6 h-6 rounded-full border-2 transition",
+                    color === c ? "border-white scale-110" : "border-transparent hover:scale-110"
+                  )}
+                  style={{ background: c }}
+                />
+              ))}
+            </div>
+
+            <div className="flex justify-end gap-2">
+              {editingId && (
+                <button onClick={reset} className="px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition">
+                  Отменить
+                </button>
+              )}
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="px-4 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-500 transition disabled:opacity-50"
+              >
+                {saving ? "..." : editingId ? "Сохранить" : "Добавить"}
               </button>
-            )}
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="px-4 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-500 transition disabled:opacity-50"
-            >
-              {saving ? "..." : editingId ? "Сохранить" : "Добавить"}
-            </button>
+            </div>
           </div>
         </div>
       </div>
