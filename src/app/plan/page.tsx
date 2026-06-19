@@ -666,15 +666,23 @@ export default function DayPlanPage() {
     setLoading(true);
     setError(null);
 
+    const timeout = setTimeout(() => {
+      if (!cancelled) {
+        setError("Не удалось загрузить данные. Проверьте подключение к Firebase.");
+        setLoading(false);
+      }
+    }, 15000);
+
     (async () => {
       try {
         const { start, end } = getTodayRange();
-        const [fetchedTasks, fetchedCats] = await Promise.all([
-          getTasks(uid, start, end),
-          getCategories(uid),
-        ]);
+        const fetchedTasks = await getTasks(uid, start, end);
         if (cancelled) return;
         setTasks(fetchedTasks);
+
+        const fetchedCats = await getCategories(uid);
+        if (cancelled) return;
+
         if (fetchedCats.length === 0) {
           const ids = await Promise.all(
             DEFAULT_CATEGORIES.map((d) => createCategory(uid, { ...d, userId: uid }))
@@ -691,11 +699,14 @@ export default function DayPlanPage() {
           setCategories([]);
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          clearTimeout(timeout);
+          setLoading(false);
+        }
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => { cancelled = true; clearTimeout(timeout); };
   }, [uid]);
 
   /* ─── Computed stats ─── */
