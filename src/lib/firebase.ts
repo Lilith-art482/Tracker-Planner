@@ -3,12 +3,13 @@ import { getAuth } from "firebase/auth";
 import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAtYi-egh1H48vumo_Y_t6zl_4NKF4pPyE",
-  authDomain: "tracker-planner-85d87.firebaseapp.com",
-  projectId: "tracker-planner-85d87",
-  storageBucket: "tracker-planner-85d87.firebasestorage.app",
-  messagingSenderId: "971848279039",
-  appId: "1:971848279039:web:dc3b61d588c2a492a3bdca"
+  apiKey: "AIzaSyBaUZzG00EBQrXjg02TeXchZM1135xBFMQ",
+  authDomain: "planer-138eb.firebaseapp.com",
+  projectId: "planer-138eb",
+  storageBucket: "planer-138eb.firebasestorage.app",
+  messagingSenderId: "507210562275",
+  appId: "1:507210562275:web:1ecc4756a39a3885b9e3d6",
+  measurementId: "G-5G72617HTG"
 };
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
