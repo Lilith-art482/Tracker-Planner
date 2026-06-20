@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import AppShell from "@/components/AppShell";
 import { useAuth } from "@/context/AuthContext";
 import { getTasks, createTask, updateTask, deleteTask } from "@/lib/db";
@@ -57,27 +57,34 @@ export default function TasksPage() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const days = getWeekDays(currentDate);
-  const weekStart = getWeekStart(currentDate);
-
-  const fetchTasks = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const from = days[0];
-      const to = days[days.length - 1];
-      const data = await getTasks(uid, from, to);
-      setTasks(data);
-    } catch (err: any) {
-      setError(err.message || "Ошибка загрузки данных");
-      setTasks([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [uid, days]);
 
   useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
+    if (!uid) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    (async () => {
+      try {
+        const weekDays = getWeekDays(currentDate);
+        const from = weekDays[0];
+        const to = weekDays[weekDays.length - 1];
+        const data = await getTasks(uid, from, to);
+        if (cancelled) return;
+        setTasks(data);
+      } catch (err: any) {
+        if (!cancelled) {
+          setError(err.message || "Ошибка загрузки данных");
+          setTasks([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [uid, currentDate]);
 
   const tasksForDay = (day: Date) =>
     tasks.filter((t) => isSameDay(new Date(t.date), day));
