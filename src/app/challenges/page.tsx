@@ -127,40 +127,41 @@ export default function ChallengesPage() {
   };
 
   function generateSVG(title: string, daysCount: number, theme: string) {
-    const size = 600;
+    const size = 720;
     const center = size / 2;
-    const radius = 200;
-    const dotR = 18;
-    const colors: Record<string, { main: string; accent: string; emoji: string }> = {
-      apple: { main: "#0ea5a4", accent: "#16a34a", emoji: "🍎" },
-      water: { main: "#60a5fa", accent: "#0284c7", emoji: "💧" },
-      exercise: { main: "#fb7185", accent: "#ef4444", emoji: "🏋️" },
-      medal: { main: "#f59e0b", accent: "#b45309", emoji: "🏅" },
-    };
-    const themeDef = colors[theme] ?? colors.apple;
+    const outerRadius = Math.min(260, center - 40);
+    const dotR = 22;
 
+    const themeColors: Record<string, { main: string; accent: string; iconPath?: string }> = {
+      apple: { main: "#0f172a", accent: "#94a3b8", iconPath: "M24 8c-3 0-6 2-7 5-1-3-4-5-7-5-3 0-6 3-6 7 0 7 6 12 13 12s13-5 13-12c0-4-3-7-9-7z" },
+      water: { main: "#0f172a", accent: "#60a5fa" },
+      exercise: { main: "#0f172a", accent: "#fb7185" },
+      medal: { main: "#0f172a", accent: "#f59e0b" },
+    };
+
+    const colors = themeColors[theme] ?? themeColors.apple;
+
+    // build outer numbered circles
     const dots: string[] = [];
     for (let i = 0; i < daysCount; i++) {
-      const angle = (i / daysCount) * Math.PI * 2 - Math.PI / 2;
-      const x = center + radius * Math.cos(angle);
-      const y = center + radius * Math.sin(angle);
-      dots.push(`<circle cx="${x}" cy="${y}" r="${dotR}" fill="white" stroke="rgba(255,255,255,0.06)" />`);
-      dots.push(`<text x="${x}" y="${y + 5}" font-size="14" text-anchor="middle" fill="#111827">${i + 1}</text>`);
+      const angle = (i / daysCount) * Math.PI * 2 - Math.PI / 2; // start at top
+      const x = center + outerRadius * Math.cos(angle);
+      const y = center + outerRadius * Math.sin(angle);
+      // circle with stroke only for elegant look
+      dots.push(`<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${dotR}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="2" />`);
+      // number
+      dots.push(`<text x="${x.toFixed(2)}" y="${(y + 6).toFixed(2)}" font-family="Arial, Helvetica, sans-serif" font-size="14" text-anchor="middle" fill="#cbd5e1">${i + 1}</text>`);
     }
 
-    const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-  <rect width="100%" height="100%" fill="#0f172a" />
-  <g opacity="0.06">
-    <circle cx="${center}" cy="${center}" r="${radius + 40}" fill="${themeDef.main}" />
-  </g>
-  ${dots.join("\n  ")}
-  <g>
-    <circle cx="${center}" cy="${center}" r="110" fill="#0b1220" stroke="rgba(255,255,255,0.06)" />
-    <text x="${center}" y="${center + 18}" font-size="72" text-anchor="middle">${themeDef.emoji}</text>
-  </g>
-  <text x="${center}" y="${size - 24}" font-size="18" text-anchor="middle" fill="#9ca3af">${escapeXml(title)}</text>
-</svg>`;
+    // center icon: draw a clean circle and a simple apple-like glyph using paths
+    const centerGroup = `
+      <circle cx="${center}" cy="${center}" r="120" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="2" />
+      <g transform="translate(${center - 36}, ${center - 36}) scale(1.6)">
+        <path d="M24 8c-3 0-6 2-7 5-1-3-4-5-7-5-3 0-6 3-6 7 0 7 6 12 13 12s13-5 13-12c0-4-3-7-9-7z" fill="#0f172a" stroke="#cbd5e1" stroke-width="1.5" />
+        <path d="M28 6c2-2 5-2 7-1-1 2-2 4-5 5" fill="none" stroke="#cbd5e1" stroke-width="1.4" stroke-linecap="round" />
+      </g>`;
+
+    const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">\n  <rect width="100%" height="100%" fill="#071229" />\n  <g opacity="0.06">\n    <circle cx="${center}" cy="${center}" r="${outerRadius + 40}" fill="${colors.accent || '#0ea5a4'}" />\n  </g>\n  ${dots.join("\n  ")}\n  ${centerGroup}\n  <text x="${center}" y="${size - 28}" font-family=\"Arial, Helvetica, sans-serif\" font-size=\"18\" text-anchor=\"middle\" fill=\"#94a3b8\">${escapeXml(title)}</text>\n</svg>`;
 
     return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
   }
