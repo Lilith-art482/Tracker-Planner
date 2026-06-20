@@ -13,6 +13,9 @@ import {
   LogOut,
   Menu,
   X,
+  Award,
+  CreditCard,
+  Repeat,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -20,6 +23,9 @@ const navItems = [
   { href: "/plan", label: "План", icon: CalendarCheck, color: "from-indigo-500 to-blue-600" },
   { href: "/tasks", label: "Задачи", icon: ListChecks, color: "from-emerald-500 to-teal-600" },
   { href: "/projects", label: "Проекты", icon: FolderKanban, color: "from-violet-500 to-purple-600" },
+  { href: "/challenges", label: "Челенджи", icon: Award, color: "from-rose-500 to-pink-600" },
+  { href: "/finance", label: "Финансы", icon: CreditCard, color: "from-emerald-500 to-green-600" },
+  { href: "/habits", label: "Привычки", icon: Repeat, color: "from-yellow-500 to-amber-600" },
   { href: "/notes", label: "Заметки", icon: StickyNote, color: "from-amber-500 to-orange-600" },
 ];
 
