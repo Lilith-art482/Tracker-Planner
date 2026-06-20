@@ -10,6 +10,8 @@ type Challenge = {
   title: string;
   days: number;
   progress: boolean[]; // index 0..days-1
+  theme?: string;
+  svg?: string; // data URL or raw svg string stored for preview/download
 };
 
 function CircularTracker({ challenge, onToggle }: { challenge: Challenge; onToggle: (idx: number) => void }) {
@@ -73,6 +75,7 @@ export default function ChallengesPage() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [title, setTitle] = useState("");
   const [days, setDays] = useState<number>(30);
+  const [theme, setTheme] = useState<string>("apple");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const storageKey = useMemo(() => (uid ? `challenges_${uid}` : null), [uid]);
@@ -99,7 +102,7 @@ export default function ChallengesPage() {
   const addChallenge = () => {
     if (!title.trim() || days <= 0) return;
     const id = `c_${Date.now()}`;
-    const ch: Challenge = { id, title: title.trim(), days, progress: Array.from({ length: days }).map(() => false) };
+    const ch: Challenge = { id, title: title.trim(), days, progress: Array.from({ length: days }).map(() => false), theme, svg: generateSVG(title.trim(), days, theme) };
     setChallenges((s) => [ch, ...s]);
     setTitle("");
     setDays(30);
@@ -122,6 +125,49 @@ export default function ChallengesPage() {
       return { ...c, progress: p };
     }));
   };
+
+  function generateSVG(title: string, daysCount: number, theme: string) {
+    const size = 600;
+    const center = size / 2;
+    const radius = 200;
+    const dotR = 18;
+    const colors: Record<string, { main: string; accent: string; emoji: string }> = {
+      apple: { main: "#0ea5a4", accent: "#16a34a", emoji: "🍎" },
+      water: { main: "#60a5fa", accent: "#0284c7", emoji: "💧" },
+      exercise: { main: "#fb7185", accent: "#ef4444", emoji: "🏋️" },
+      medal: { main: "#f59e0b", accent: "#b45309", emoji: "🏅" },
+    };
+    const themeDef = colors[theme] ?? colors.apple;
+
+    const dots: string[] = [];
+    for (let i = 0; i < daysCount; i++) {
+      const angle = (i / daysCount) * Math.PI * 2 - Math.PI / 2;
+      const x = center + radius * Math.cos(angle);
+      const y = center + radius * Math.sin(angle);
+      dots.push(`<circle cx="${x}" cy="${y}" r="${dotR}" fill="white" stroke="rgba(255,255,255,0.06)" />`);
+      dots.push(`<text x="${x}" y="${y + 5}" font-size="14" text-anchor="middle" fill="#111827">${i + 1}</text>`);
+    }
+
+    const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+  <rect width="100%" height="100%" fill="#0f172a" />
+  <g opacity="0.06">
+    <circle cx="${center}" cy="${center}" r="${radius + 40}" fill="${themeDef.main}" />
+  </g>
+  ${dots.join("\n  ")}
+  <g>
+    <circle cx="${center}" cy="${center}" r="110" fill="#0b1220" stroke="rgba(255,255,255,0.06)" />
+    <text x="${center}" y="${center + 18}" font-size="72" text-anchor="middle">${themeDef.emoji}</text>
+  </g>
+  <text x="${center}" y="${size - 24}" font-size="18" text-anchor="middle" fill="#9ca3af">${escapeXml(title)}</text>
+</svg>`;
+
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  }
+
+  function escapeXml(s: string) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&apos;");
+  }
 
   return (
     <AppShell>
@@ -149,6 +195,12 @@ export default function ChallengesPage() {
                   onChange={(e) => setDays(Number(e.target.value))}
                   className="w-24 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm"
                 />
+                <select value={theme} onChange={(e) => setTheme(e.target.value)} className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm">
+                  <option value="apple">Фрукты</option>
+                  <option value="water">Вода</option>
+                  <option value="exercise">Упражнения</option>
+                  <option value="medal">Достижения</option>
+                </select>
                 <button onClick={addChallenge} className="px-3 py-2 rounded-lg bg-indigo-600 text-white">Добавить</button>
               </div>
             </div>
@@ -159,7 +211,7 @@ export default function ChallengesPage() {
               <ul className="space-y-2">
                 {challenges.map((c) => (
                   <li key={c.id} className="flex items-center justify-between gap-2">
-                    <button onClick={() => setSelectedId(c.id)} className={cn("text-left flex-1 text-sm px-2 py-1 rounded hover:bg-white/5", selectedId === c.id ? "bg-indigo-500/10 text-white" : "text-gray-300")}>{c.title} <span className="text-xs text-gray-400">· {c.days} дн.</span></button>
+                      <button onClick={() => setSelectedId(c.id)} className={cn("text-left flex-1 text-sm px-2 py-1 rounded hover:bg-white/5", selectedId === c.id ? "bg-indigo-500/10 text-white" : "text-gray-300")}>{c.title} <span className="text-xs text-gray-400">· {c.days} дн.</span></button>
                     <button onClick={() => removeChallenge(c.id)} className="text-red-400 px-2 py-1 rounded hover:bg-white/5">Удалить</button>
                   </li>
                 ))}
@@ -174,8 +226,27 @@ export default function ChallengesPage() {
                   <h2 className="text-lg font-semibold text-white">{selected.title}</h2>
                   <div className="text-sm text-gray-400">Дней: {selected.days}</div>
                 </div>
-                <CircularTracker challenge={selected} onToggle={toggleDay} />
-                <div className="mt-4 text-sm text-gray-400">Кликните по дню, чтобы отметить выполнение.</div>
+                <div className="flex flex-col md:flex-row gap-6 items-start">
+                  <div className="flex-1">
+                    <CircularTracker challenge={selected} onToggle={toggleDay} />
+                    <div className="mt-4 text-sm text-gray-400">Кликните по дню, чтобы отметить выполнение.</div>
+                  </div>
+                  <div className="w-80">
+                    <h3 className="text-sm font-semibold text-white mb-2">Превью изображения</h3>
+                    {selected.svg ? (
+                      <div className="rounded-lg overflow-hidden border border-white/10">
+                        <img src={selected.svg} alt="preview" style={{ width: "100%", display: "block" }} />
+                      </div>
+                    ) : (
+                      <div className="rounded-lg p-6 bg-slate-900 text-gray-400">Нет изображения</div>
+                    )}
+                    <div className="mt-3 flex gap-2">
+                      {selected.svg && (
+                        <a href={selected.svg} download={`${selected.title.replace(/\s+/g, "_")}.svg`} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm">Скачать SVG</a>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="rounded-xl border border-white/10 bg-slate-800 p-6 text-gray-400">Выберите челендж слева или создайте новый.</div>
